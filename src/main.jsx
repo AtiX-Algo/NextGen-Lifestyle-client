@@ -1,19 +1,32 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css' 
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import './index.css';
+
+// Import your components
+import Signup from './components/Signup';
+import Login from './components/Login';
+import VerifyOtp from './components/VerifyOtp';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <div className="min-h-screen flex items-center justify-center bg-base-200">
-      <div className="card w-96 bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title text-primary">Setup Successful!</h2>
-          <p>Tailwind is working. DaisyUI is working.</p>
-          <div className="card-actions justify-end">
-            <button className="btn btn-primary">Test Button</button>
+    <BrowserRouter>
+      <Routes>
+        {/* Default route redirects to Login */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        
+        {/* Auth Routes */}
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
+        
+        {/* Placeholder for future Dashboard */}
+        <Route path="/dashboard" element={
+          <div className="p-10 text-2xl font-bold text-center">
+            Welcome to Dashboard! (Protected)
           </div>
-        </div>
-      </div>
-    </div>
-  </StrictMode>,
-)
+        } />
+      </Routes>
+    </BrowserRouter>
+  </StrictMode>
+);
