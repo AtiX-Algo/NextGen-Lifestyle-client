@@ -39,7 +39,7 @@ const Login = () => {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data));
 
-                // Redirect after slight delay (so user can see success message)
+                
                 setTimeout(() => {
                     navigate('/dashboard');
                 }, 800);

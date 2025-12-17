@@ -10,7 +10,7 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  // Handle Step 1: Send OTP
+  // Handle Send OTP
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setError('');
@@ -32,7 +32,7 @@ const ForgotPassword = () => {
     } catch (err) { setError('Network Error',err); }
   };
 
-  // Handle Step 2: Reset Password
+  // Handle Reset Password
   const handleReset = async (e) => {
     e.preventDefault();
     setError('');

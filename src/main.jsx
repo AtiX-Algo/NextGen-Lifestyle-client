@@ -7,6 +7,11 @@ import './index.css';
 import Signup from './components/Signup';
 import Login from './components/Login';
 import VerifyOtp from './components/VerifyOtp';
+import AdminCoupons from './components/AdminCoupons';
+import Checkout from './components/Checkout';
+
+
+import AdminRoute from './Route/AdminRoute';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -20,6 +25,9 @@ createRoot(document.getElementById('root')).render(
         <Route path="/login" element={<Login />} />
         <Route path="/verify-otp" element={<VerifyOtp />} />
         
+        <Route path="/admin/coupons" element={ <AdminRoute>   <AdminCoupons />  </AdminRoute> } />
+        <Route path="/checkout" element={<Checkout />} />
+
         {/* Placeholder for future Dashboard */}
         <Route path="/dashboard" element={
           <div className="p-10 text-2xl font-bold text-center">
