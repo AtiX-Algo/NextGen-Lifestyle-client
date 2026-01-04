@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-// ⚠️ REPLACE WITH YOUR ACTUAL PUBLISHABLE KEY
+//PUBLISHABLE KEY
 const stripePromise = loadStripe('pk_test_51SD8fNGknryBHSAVAeOmfgy1Tjx3TzHmiJwbQhSveZLdZaZDbNwUKuR2HOSCdkkvRzXaxB7T4IihzvO6dxupSKEB00Wt9SrjAt');
 
 const CheckoutForm = ({ amount }) => {
