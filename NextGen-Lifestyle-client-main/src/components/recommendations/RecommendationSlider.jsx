@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, X, XCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, XCircle, MoreHorizontal } from 'lucide-react';
 import ProductCard from '../ProductCard';
 import { useRecommendations } from '../../context/RecommendationContext';
 import { Button } from '../ui/button';
@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { cn } from '../../lib/utils';
 
 // Reasons for hiding a recommendation
 const HIDE_REASONS = [
@@ -20,7 +21,7 @@ const HIDE_REASONS = [
 ];
 
 export function RecommendationSlider({ 
-  title, 
+  title = 'Recommended for You', 
   productIds = [], 
   type = 'personalized',
   productId,
@@ -39,6 +40,7 @@ export function RecommendationSlider({
     fetchFrequentlyBoughtTogether, 
     fetchPersonalizedRecommendations,
     getTrendingProducts,
+    getNewArrivals,
     hideRecommendation,
     loading,
     error,
@@ -82,11 +84,13 @@ export function RecommendationSlider({
         return () => fetchFrequentlyBoughtTogether(productIds);
       case 'trending':
         return getTrendingProducts;
+      case 'newArrivals':
+        return getNewArrivals;
       case 'personalized':
       default:
         return fetchPersonalizedRecommendations;
     }
-  }, [type, productId, productIds, fetchSimilarItems, fetchFrequentlyBoughtTogether, fetchPersonalizedRecommendations, getTrendingProducts]);
+  }, [type, productId, productIds, fetchSimilarItems, fetchFrequentlyBoughtTogether, fetchPersonalizedRecommendations, getTrendingProducts, getNewArrivals]);
 
   // Fetch recommendations based on type
   useEffect(() => {
@@ -178,103 +182,136 @@ export function RecommendationSlider({
   if (items.length === 0) {
     return null; // Don't render anything if no items
   }
-
+  
   const maxIndex = Math.ceil(items.length / visibleItems) - 1;
   const canGoPrev = currentIndex > 0;
   const canGoNext = currentIndex < maxIndex;
 
   return (
-    <div className={`recommendation-slider ${className}`}>
+    <div className={cn("relative w-full", className)}>
       {showHeader && (
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">{title}</h2>
+        <div className="flex items-center justify-between mb-4 px-4 sm:px-6 lg:px-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
           <div className="flex space-x-2">
-            <button
+            <Button
+              variant="outline"
+              size="icon"
               onClick={handlePrev}
-              disabled={!canGoPrev}
-              className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50"
+              disabled={currentIndex === 0}
+              className="h-8 w-8 rounded-full"
               aria-label="Previous"
             >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={handleNext}
-              disabled={!canGoNext}
-              className="p-1 rounded-full hover:bg-gray-100 disabled:opacity-50"
+              disabled={currentIndex + visibleItems >= items.length}
+              className="h-8 w-8 rounded-full"
               aria-label="Next"
             >
-              <ChevronRight className="h-5 w-5" />
-            </button>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}
 
       <div className="relative">
-        <div 
-          className="flex transition-transform duration-300 ease-in-out"
-          style={{
-            transform: `translateX(-${currentIndex * (100 / visibleItems)}%)`,
-            width: `${Math.ceil(items.length / visibleItems) * 100}%`
-          }}
-        >
-          {items.map((item) => (
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {Array.from({ length: visibleItems }).map((_, i) => (
+              <div key={i} className="animate-pulse bg-gray-100 rounded-lg h-80 w-full" />
+            ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p className="text-red-500">Failed to load recommendations. Please try again later.</p>
+          </div>
+        ) : items.length > 0 ? (
+          <div className="relative">
             <div 
-              key={item._id}
-              className="relative group"
-              style={{ width: `${100 / visibleItems}%`, padding: '0 8px' }}
+              className="flex transition-transform duration-300 ease-in-out"
+              style={{
+                transform: `translateX(-${currentIndex * (100 / visibleItems)}%)`,
+                width: `${Math.ceil((items.length / visibleItems) * 100)}%`
+              }}
             >
-              <div className="relative h-full">
-                <ProductCard 
-                  product={item}
-                  onClick={() => handleProductClick(item._id)}
-                  className="h-full"
-                />
-                
-                {/* Inventory status */}
-                {item.inventoryCount <= 0 ? (
-                  <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
-                    Out of Stock
+              {items.map((item) => (
+                <div 
+                  key={item._id} 
+                  className="relative w-full flex-shrink-0 px-2"
+                  style={{
+                    width: `${100 / visibleItems}%`
+                  }}
+                >
+                  <div className="relative group h-full">
+                    <ProductCard 
+                      product={item}
+                      onClick={() => handleProductClick(item._id)}
+                      className="h-full"
+                    />
+                    
+                    {/* Inventory status */}
+                    <div className="relative overflow-hidden px-4 sm:px-6 lg:px-8">
+                      {item.inventoryCount <= 0 ? (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded">
+                          Out of Stock
+                        </div>
+                      ) : item.inventoryCount <= 10 ? (
+                        <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">
+                          Only {item.inventoryCount} left
+                        </div>
+                      ) : null}
+                      
+                      {/* Hide button */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 rounded-full bg-white/90 hover:bg-white shadow-md"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowFeedback(showFeedback === item._id ? null : item._id);
+                            }}
+                            aria-label="More options"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <div className="px-2 py-1.5 text-sm font-medium text-gray-700">
+                            Not interested?
+                          </div>
+                          {HIDE_REASONS.map((reason) => (
+                            <DropdownMenuItem
+                              key={reason.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleHideItem(item._id, reason.id);
+                              }}
+                              className="text-sm text-gray-700 cursor-pointer hover:bg-gray-100"
+                            >
+                              {reason.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      
+                      {/* Feedback dropdown */}
+                      {showFeedback === item._id && renderFeedbackDropdown(item._id)}
+                    </div>
                   </div>
-                ) : item.inventoryCount <= 10 ? (
-                  <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">
-                    Only {item.inventoryCount} left
-                  </div>
-                ) : null}
-                
-                {/* Hide button */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button 
-                      className="absolute top-2 right-2 p-1 rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-900 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowFeedback(showFeedback === item._id ? null : item._id);
-                      }}
-                      aria-label="Hide recommendation"
-                    >
-                      <XCircle className="h-5 w-5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <div className="px-2 py-1 text-xs text-gray-500">Hide this recommendation</div>
-                    {HIDE_REASONS.map(reason => (
-                      <DropdownMenuItem 
-                        key={reason.id}
-                        onSelect={() => handleHideItem(item._id, reason.id)}
-                        className="text-sm"
-                      >
-                        {reason.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                
-                {/* Feedback dropdown */}
-                {showFeedback === item._id && renderFeedbackDropdown(item._id)}
-              </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No recommendations available at the moment.</p>
+          </div>
+        )}
       </div>
     </div>
   );

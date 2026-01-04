@@ -56,10 +56,13 @@ export default function NotificationPreferencesPage() {
     setError("");
     getPreferences(userId)
       .then((pref) => {
-        setPhone(pref.phone || "");
+        if (!pref) return;
+
+        const fetchedPhone = pref.phoneNumber ?? pref.phone ?? "";
+        setPhone(fetchedPhone ? normalizeBdPhone(fetchedPhone) : "");
         setEmail(pref.email || "");
         setSmsOptIn(Boolean(pref.smsOptIn));
-        setEmailOptIn(Boolean(pref.emailOptIn));
+        setEmailOptIn(pref.emailOptIn !== false);
       })
       .catch(() => {
         // If not created yet, just keep defaults

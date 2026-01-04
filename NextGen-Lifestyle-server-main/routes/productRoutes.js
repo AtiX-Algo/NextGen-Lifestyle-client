@@ -183,25 +183,43 @@ router.post('/', async (req, res) => {
  */
 router.patch('/:id/stock', async (req, res) => {
   try {
-    const { variantId, stock } = req.body;
-    
-    if (variantId) {
-      // Update specific variant stock
-      const product = await Product.findOneAndUpdate(
-        { _id: req.params.id, 'variants._id': variantId },
-        { $set: { 'variants.$.stock': Number(stock) } },
-        { new: true }
-      );
-      return res.json(product);
-    } else {
-      // Update main product stock (if no variants)
-      const product = await Product.findByIdAndUpdate(
-        req.params.id,
-        { $set: { stock: Number(stock) } },
-        { new: true }
-      );
+    const { variantId, size, color, stock } = req.body;
+    const nextStock = Number(stock) || 0;
+
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    // If product has variants, update a matching variant (by _id when available, else by size+color)
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      let target = null;
+
+      if (variantId) {
+        target = product.variants.find((v) => String(v._id) === String(variantId));
+      }
+
+      if (!target) {
+        target = product.variants.find(
+          (v) =>
+            (size ? v.size === size : !v.size || v.size === null) &&
+            (color ? v.color === color : !v.color || v.color === null)
+        );
+      }
+
+      if (!target) {
+        return res.status(404).json({ message: 'Variant not found' });
+      }
+
+      const reserved = Number(target.reserved || 0);
+      target.stock = Math.max(nextStock, reserved);
+      product.markModified('variants');
+      await product.save();
       return res.json(product);
     }
+
+    // No variants: fall back to root-level stock
+    product.stock = nextStock;
+    await product.save();
+    return res.json(product);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

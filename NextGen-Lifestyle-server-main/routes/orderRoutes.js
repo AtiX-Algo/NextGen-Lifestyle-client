@@ -3,7 +3,6 @@ const express = require("express");
 const Order = require("../models/order");
 const Product = require("../models/product");
 
-
 // ✅ Feature 10: Notifications
 // Make sure this file exists:
 // NextGen-Lifestyle-server-main/services/notifications/notificationService.js
@@ -254,6 +253,13 @@ router.post("/", async (req, res) => {
       invoiceNumber: `INV-${Date.now()}`,
     });
 
+    console.log(
+      "✅ Order created:",
+      order._id.toString(),
+      "items=", order.items.length,
+      "total=", order.total
+    );
+
     // ✅ Feature 10: ORDER CONFIRMED notification
     await safeNotify({
       userId: order.userId || userId,
@@ -483,6 +489,39 @@ router.patch("/:id", async (req, res) => {
       message: "Failed to update order",
       error: err.message,
     });
+  }
+});
+
+/**
+ * DELETE /api/orders/:id
+ * Permanently delete an order (admin).
+ * Safety: if payment is still pending, release reserved stock before deletion.
+ */
+router.delete("/:id", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // If still pending payment, release reserved stock so inventory stays correct
+    if (String(order.paymentStatus || "").toLowerCase() === "pending") {
+      try {
+        if (Array.isArray(order.items) && order.items.length) {
+          await releaseReservedStockForItems(order.items);
+        }
+      } catch (e) {
+        console.error(
+          "⚠️ Failed to release reserved stock before deleting order. Deleting anyway.",
+          order._id.toString(),
+          e
+        );
+      }
+    }
+
+    await Order.deleteOne({ _id: order._id });
+    res.json({ message: "Order deleted", id: order._id.toString() });
+  } catch (err) {
+    console.error("Error deleting order", err);
+    res.status(500).json({ message: "Failed to delete order", error: err.message });
   }
 });
 

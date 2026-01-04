@@ -2,7 +2,10 @@ const mongoose = require("mongoose");
 
 const NotificationPreferenceSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
+    userId: { type: String, required: true, index: true },
+
+    // Preference versioning
+    isActive: { type: Boolean, default: true, index: true },
 
     // Consent
     smsOptIn: { type: Boolean, default: false },
@@ -14,6 +17,8 @@ const NotificationPreferenceSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+NotificationPreferenceSchema.index({ userId: 1, isActive: 1 });
 
 module.exports =
   mongoose.models.NotificationPreference ||

@@ -13,10 +13,10 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminInventoryPage from './pages/admin/AdminInventoryPage';
 import NotificationPreferencesPage from './pages/NotificationPreferencesPage';
+import OrderDetailPage from './pages/OrderDetailPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { CartProvider } from './context/CartContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { RecommendationProvider } from './context/RecommendationContext';
 
 function App() {
   return (
@@ -30,7 +30,6 @@ function App() {
       
       <main className="flex-grow container mx-auto px-4 py-8">
         <ErrorBoundary>
-          <RecommendationProvider userId={null}> {/* In a real app, pass the actual user ID */}
           <Routes>
             <Route path="/" element={<Navigate to="/products" replace />} />
             <Route path="/home" element={<HomePage />} />
@@ -38,19 +37,20 @@ function App() {
             <Route path="/products/:id" element={<ProductDetailPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/orders/:id" element={<OrderDetailPage />} />
             <Route path="/preferences/notifications" element={<NotificationPreferencesPage />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<Navigate to="/admin/orders" replace />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route path="orders" element={<AdminOrders />} />
+              <Route path="orders/:id" element={<OrderDetailPage />} />
               <Route path="inventory" element={<AdminInventoryPage />} />
               <Route index element={<Navigate to="orders" replace />} />
             </Route>
             
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-          </RecommendationProvider>
         </ErrorBoundary>
       </main>
       

@@ -18,13 +18,27 @@ export function RecommendationProvider({ children, userId }) {
   // Load user's hidden recommendations and preferences
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hiddenItems = JSON.parse(localStorage.getItem(`hiddenRecommendations_${userId}`) || '[]');
-      const userPreferences = JSON.parse(localStorage.getItem(`userPreferences_${userId}`) || '{}');
+      const safeJsonParse = (value, fallback) => {
+        try {
+          return JSON.parse(value);
+        } catch (e) {
+          return fallback;
+        }
+      };
+
+      const hiddenItems = safeJsonParse(
+        localStorage.getItem(`hiddenRecommendations_${userId}`) || '[]',
+        []
+      );
+      const userPreferences = safeJsonParse(
+        localStorage.getItem(`userPreferences_${userId}`) || '{}',
+        {}
+      );
       
       setRecommendations(prev => ({
         ...prev,
-        hiddenItems: new Set(hiddenItems),
-        userPreferences
+        hiddenItems: new Set(Array.isArray(hiddenItems) ? hiddenItems : []),
+        userPreferences: userPreferences && typeof userPreferences === 'object' ? userPreferences : {}
       }));
     }
   }, [userId]);
@@ -80,6 +94,31 @@ export function RecommendationProvider({ children, userId }) {
     }
   };
 
+  const getNewArrivals = async () => {
+    try {
+      setRecommendations(prev => ({ ...prev, loading: true, error: null }));
+      const data = await recommendationApi.getNewArrivals(userId);
+      const filtered = data
+        .filter(item => !recommendations.hiddenItems.has(item._id))
+        .filter(item => item.inventoryCount > 0);
+
+      setRecommendations(prev => ({
+        ...prev,
+        loading: false
+      }));
+
+      return filtered;
+    } catch (error) {
+      console.error('Error fetching new arrivals:', error);
+      setRecommendations(prev => ({
+        ...prev,
+        error: 'Failed to load new arrivals',
+        loading: false
+      }));
+      return [];
+    }
+  };
+
   const fetchSimilarItems = async (productId) => {
     if (!productId) return [];
     
@@ -91,7 +130,7 @@ export function RecommendationProvider({ children, userId }) {
         return recommendations.similarItems[productId];
       }
       
-      const data = await recommendationApi.getSimilarItems(productId);
+      const data = await recommendationApi.getSimilarItems(productId, userId);
       
       // Filter out hidden items and items with low inventory
       const filtered = data
@@ -136,7 +175,7 @@ export function RecommendationProvider({ children, userId }) {
         return recommendations.frequentlyBoughtTogether[cacheKey];
       }
       
-      const data = await recommendationApi.getFrequentlyBoughtTogether(productIds);
+      const data = await recommendationApi.getFrequentlyBoughtTogether(productIds, userId);
       
       // Filter out hidden items and items with low inventory
       const filtered = data
@@ -214,7 +253,7 @@ export function RecommendationProvider({ children, userId }) {
   const getTrendingProducts = async () => {
     try {
       setRecommendations(prev => ({ ...prev, loading: true, error: null }));
-      const data = await recommendationApi.getTrendingProducts();
+      const data = await recommendationApi.getTrendingProducts(userId);
       
       // Filter out hidden items and items with low inventory
       const filtered = data
@@ -246,6 +285,7 @@ export function RecommendationProvider({ children, userId }) {
     fetchFrequentlyBoughtTogether,
     hideRecommendation,
     getTrendingProducts,
+    getNewArrivals,
     userPreferences: recommendations.userPreferences
   };
 

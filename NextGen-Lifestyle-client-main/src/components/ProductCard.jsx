@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { toImageUrl } from "../utils/imageUrl"; // ✅ added
 
 function getAvailableStock(product) {
-  if (!product?.variants || product.variants.length === 0) return 0;
+  if (!product?.variants || product.variants.length === 0) return Number(product?.stock || 0);
   return product.variants.reduce(
     (sum, v) => sum + (v.stock - (v.reserved || 0)),
     0

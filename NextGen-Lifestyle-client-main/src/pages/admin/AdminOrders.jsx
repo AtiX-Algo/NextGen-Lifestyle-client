@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { toast } from 'react-hot-toast';
+import { deleteOrder, fetchOrders as fetchOrdersApi, updateOrder } from '../../services/api';
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
@@ -8,22 +10,43 @@ export default function AdminOrders() {
   const [searchTerm, setSearchTerm] = useState('');
   const { colors } = useTheme();
 
-  // Simulated data fetch
+  const statusOptions = [
+    'Pending',
+    'Processing',
+    'Packed',
+    'Shipped',
+    'Delivered',
+    'Cancelled',
+  ];
+
+  // Fetch orders from backend
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchOrdersFromApi = async () => {
       try {
-        // In a real app, you would fetch orders from your API
-        // const response = await api.get('/api/orders');
-        // setOrders(response.data);
-        
-        // Mock data for demonstration
-        const mockOrders = [
-          { id: 'ORD-001', customer: 'John Doe', date: '2023-05-15', status: 'Delivered', total: 99.99 },
-          { id: 'ORD-002', customer: 'Jane Smith', date: '2023-05-16', status: 'Shipped', total: 149.99 },
-          { id: 'ORD-003', customer: 'Bob Johnson', date: '2023-05-17', status: 'Processing', total: 199.99 },
-        ];
-        
-        setOrders(mockOrders);
+        const data = await fetchOrdersApi();
+        const rawOrders = Array.isArray(data) ? data : (data?.orders || []);
+
+        const mappedOrders = rawOrders.map((o) => {
+          const id = o._id || o.id;
+          const displayId = o.invoiceNumber || `ORD-${String(id).slice(-6).toUpperCase()}`;
+          const customer = o.customerName || o.customer?.name || o.customer || 'Unknown';
+          const date = o.createdAt
+            ? new Date(o.createdAt).toLocaleDateString()
+            : (o.date || '');
+          const status = o.status || 'Pending';
+          const total = Number(o.total ?? o.totalAmount ?? 0);
+
+          return {
+            id,
+            displayId,
+            customer,
+            date,
+            status,
+            total: Number.isFinite(total) ? total : 0,
+          };
+        });
+
+        setOrders(mappedOrders);
         setLoading(false);
       } catch (error) {
         console.error('Error fetching orders:', error);
@@ -31,12 +54,46 @@ export default function AdminOrders() {
       }
     };
 
-    fetchOrders();
+    fetchOrdersFromApi();
   }, []);
 
+  const handleStatusChange = async (orderId, nextStatus) => {
+    const prevOrders = orders;
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: nextStatus } : o))
+    );
+
+    try {
+      const updated = await updateOrder(orderId, { status: nextStatus });
+      const actualStatus = updated?.status || nextStatus;
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: actualStatus } : o))
+      );
+      toast.success('Order status updated');
+    } catch (e) {
+      console.error('Failed to update order status:', e);
+      setOrders(prevOrders);
+      toast.error('Failed to update status');
+    }
+  };
+
+  const handleDelete = async (orderId) => {
+    const ok = window.confirm('Delete this order permanently?');
+    if (!ok) return;
+
+    try {
+      await deleteOrder(orderId);
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      toast.success('Order deleted');
+    } catch (e) {
+      console.error('Failed to delete order:', e);
+      toast.error(e?.response?.data?.message || 'Failed to delete order');
+    }
+  };
+
   const filteredOrders = orders.filter(order => 
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.customer.toLowerCase().includes(searchTerm.toLowerCase())
+    String(order.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(order.customer || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusBadge = (status) => {
@@ -101,24 +158,43 @@ export default function AdminOrders() {
               <tr key={order.id} className={colors.bg.card}>
                 <td className="font-medium">
                   <Link to={`/admin/orders/${order.id}`} className={`hover:underline ${colors.text.primary}`}>
-                    {order.id}
+                    {order.displayId || order.id}
                   </Link>
                 </td>
                 <td>{order.customer}</td>
                 <td>{order.date}</td>
                 <td>
-                  <span className={`badge ${getStatusBadge(order.status)}`}>
-                    {order.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`badge ${getStatusBadge(order.status)}`}>
+                      {order.status}
+                    </span>
+                    <select
+                      className={`select select-bordered select-sm ${colors.bg.input} ${colors.text.primary}`}
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                    >
+                      {statusOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </td>
                 <td className="text-right">${order.total.toFixed(2)}</td>
                 <td>
-                  <Link 
-                    to={`/admin/orders/${order.id}`}
-                    className={`btn btn-sm ${colors.bg.primary} ${colors.text.primary} mr-2`}
-                  >
-                    View
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link to={`/admin/orders/${order.id}`} className="btn btn-sm btn-outline">
+                      View
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(order.id)}
+                      className="btn btn-sm btn-error"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

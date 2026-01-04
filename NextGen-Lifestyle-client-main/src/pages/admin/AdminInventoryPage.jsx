@@ -99,8 +99,12 @@ export default function AdminInventoryPage() {
   };
 
   // Handle stock updates
-  const handleStockUpdate = async (productId, variantId, newStock) => {
-    const updateId = `${productId}-${variantId || 'main'}`;
+  const handleStockUpdate = async (productId, variantRef, newStock) => {
+    const variantKey =
+      variantRef && typeof variantRef === 'object'
+        ? `${variantRef.color || ''}__${variantRef.size || ''}`
+        : (variantRef || 'main');
+    const updateId = `${productId}-${variantKey}`;
     const stockValue = parseInt(newStock, 10) || 0;
     
     try {
@@ -108,27 +112,15 @@ export default function AdminInventoryPage() {
       
       // Update the server first
       const updatedProduct = await inventoryAPI.updateStock(productId, {
-        variantId: variantId || undefined,
+        variantId: undefined,
+        size: variantRef && typeof variantRef === 'object' ? variantRef.size : undefined,
+        color: variantRef && typeof variantRef === 'object' ? variantRef.color : undefined,
         stock: stockValue
       });
-      
-      // Update local state with the response from the server
-      setProducts(prevProducts => 
-        prevProducts.map(product => {
-          if (product._id === productId) {
-            if (variantId) {
-              // Update variant stock
-              const updatedVariants = product.variants?.map(v => 
-                v._id === variantId ? { ...v, stock: stockValue } : v
-              ) || [];
-              return { ...product, variants: updatedVariants };
-            } else {
-              // Update main product stock
-              return { ...product, stock: stockValue };
-            }
-          }
-          return product;
-        })
+
+      // Replace product with server response (single source of truth)
+      setProducts((prev) =>
+        prev.map((p) => (p._id === productId ? updatedProduct : p))
       );
       
       // Show success message that will auto-close after 2 seconds
@@ -333,7 +325,8 @@ function ProductRow({ product, onUpdateStock, updating }) {
 // Component for variant row
 function VariantRow({ product, variant, onUpdateStock, updating }) {
   const [newStock, setNewStock] = useState((variant.stock || 0).toString());
-  const updateId = `${product._id}-${variant._id}`;
+  const variantKey = `${variant.color || ''}__${variant.size || ''}`;
+  const updateId = `${product._id}-${variantKey}`;
   const isUpdating = updating === updateId;
 
   // Update local state when variant prop changes
@@ -345,7 +338,11 @@ function VariantRow({ product, variant, onUpdateStock, updating }) {
   const handleUpdate = () => {
     const stockValue = parseInt(newStock, 10);
     if (!isNaN(stockValue) && stockValue >= 0) {
-      onUpdateStock(product._id, variant._id, stockValue);
+      onUpdateStock(
+        product._id,
+        { size: variant.size, color: variant.color },
+        stockValue
+      );
     }
   };
 
@@ -357,7 +354,7 @@ function VariantRow({ product, variant, onUpdateStock, updating }) {
   };
 
   return (
-    <tr key={`variant-${variant._id}`} className={isUpdating ? 'opacity-75' : ''}>
+    <tr key={`variant-${product._id}-${variantKey}`} className={isUpdating ? 'opacity-75' : ''}>
       <td>
         <div className="flex items-center space-x-3">
           <div className="avatar">

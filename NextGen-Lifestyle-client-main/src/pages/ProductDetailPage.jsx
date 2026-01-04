@@ -4,7 +4,6 @@ import { fetchProductDetail } from "../services/api";
 import { toImageUrl } from "../utils/imageUrl";
 import { useCart } from "../context/CartContext";
 import { toast } from "react-hot-toast";
-import { RecommendationSlider } from "../components/recommendations/RecommendationSlider";
 
 function getAvailableStockForVariant(product, size, color) {
   if (!product?.variants) return 0;
@@ -28,6 +27,12 @@ export default function ProductDetailPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    try {
+      if (id) localStorage.setItem('ng_last_product_path', `/products/${id}`);
+    } catch {
+      // ignore
+    }
+
     setLoading(true);
     setError("");
     fetchProductDetail(id)
@@ -240,15 +245,6 @@ export default function ProductDetailPage() {
             Buy Now
           </button>
         </div>
-      </div>
-      
-      {/* Similar Items Section */}
-      <div className="mt-16">
-        <RecommendationSlider 
-          title="Similar Items" 
-          type="similar"
-          productId={id}
-        />
       </div>
     </div>
   );

@@ -5,14 +5,18 @@ const { sendEmail } = require("./emailService");
 const { renderTemplate, emailSubject } = require("./templates");
 
 async function notifyUser({ userId, eventType, data }) {
-  const pref = await NotificationPreference.findOne({ userId });
+  const pref = await NotificationPreference.findOne({ userId, isActive: true })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const effectivePref = pref || (await NotificationPreference.findOne({ userId }).sort({ createdAt: -1 }).lean());
 
   // If no pref exists, treat as opted-out of SMS and opted-in email
-  const smsOptIn = pref?.smsOptIn === true;
-  const emailOptIn = pref?.emailOptIn !== false;
+  const smsOptIn = effectivePref?.smsOptIn === true;
+  const emailOptIn = effectivePref?.emailOptIn !== false;
 
-  const phone = pref?.phoneNumber || "";
-  const email = pref?.email || "";
+  const phone = effectivePref?.phoneNumber || "";
+  const email = effectivePref?.email || "";
 
   const message = renderTemplate(eventType, data);
 
@@ -22,6 +26,38 @@ async function notifyUser({ userId, eventType, data }) {
     if (smsRes.ok) return { sms: "sent", email: "skipped" };
     // fallback to email if enabled
     if (emailOptIn && email) {
+      try {
+        await sendEmail({ to: email, subject: emailSubject(eventType), text: message });
+        await NotificationLog.create({
+          userId,
+          eventType,
+          channel: "email",
+          to: email,
+          message,
+          status: "sent",
+          attempts: 1,
+        });
+        return { sms: "failed", email: "sent" };
+      } catch (e) {
+        await NotificationLog.create({
+          userId,
+          eventType,
+          channel: "email",
+          to: email,
+          message,
+          status: "failed",
+          attempts: 1,
+          lastError: e.message || "Email fallback failed",
+        });
+        return { sms: "failed", email: "failed" };
+      }
+    }
+    return { sms: "failed", email: "skipped" };
+  }
+
+  // 2) No SMS (opted out or no phone): email fallback
+  if (emailOptIn && email) {
+    try {
       await sendEmail({ to: email, subject: emailSubject(eventType), text: message });
       await NotificationLog.create({
         userId,
@@ -32,24 +68,20 @@ async function notifyUser({ userId, eventType, data }) {
         status: "sent",
         attempts: 1,
       });
-      return { sms: "failed", email: "sent" };
+      return { sms: "skipped", email: "sent" };
+    } catch (e) {
+      await NotificationLog.create({
+        userId,
+        eventType,
+        channel: "email",
+        to: email,
+        message,
+        status: "failed",
+        attempts: 1,
+        lastError: e.message || "Email send failed",
+      });
+      return { sms: "skipped", email: "failed" };
     }
-    return { sms: "failed", email: "skipped" };
-  }
-
-  // 2) No SMS (opted out or no phone): email fallback
-  if (emailOptIn && email) {
-    await sendEmail({ to: email, subject: emailSubject(eventType), text: message });
-    await NotificationLog.create({
-      userId,
-      eventType,
-      channel: "email",
-      to: email,
-      message,
-      status: "sent",
-      attempts: 1,
-    });
-    return { sms: "skipped", email: "sent" };
   }
 
   return { sms: "skipped", email: "skipped" };

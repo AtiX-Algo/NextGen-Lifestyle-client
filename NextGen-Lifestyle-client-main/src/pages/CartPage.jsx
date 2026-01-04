@@ -1,10 +1,9 @@
 // src/pages/CartPage.jsx
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { createOrder } from "../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
-import { RecommendationSlider } from "../components/recommendations/RecommendationSlider";
 
 export default function CartPage() {
   const {
@@ -28,6 +27,7 @@ export default function CartPage() {
   });
   const [isPlacing, setIsPlacing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [successEmail, setSuccessEmail] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -49,7 +49,8 @@ export default function CartPage() {
 
     try {
       setIsPlacing(true);
-      
+      setSuccessEmail(formData.email);
+
       const orderPayload = {
         customerName,
         email,
@@ -82,7 +83,13 @@ export default function CartPage() {
 
       const order = await createOrder(orderPayload);
       const orderNumber = order.orderNumber || order._id;
-      
+
+      try {
+        if (order?._id) sessionStorage.setItem('ng_last_order_id', String(order._id));
+      } catch {
+        // ignore
+      }
+
       // Show success message
       toast.success(`Order #${orderNumber} placed successfully!`);
       setOrderSuccess(true);
@@ -101,7 +108,19 @@ export default function CartPage() {
       // Clear cart and redirect after a short delay
       setTimeout(() => {
         clearCart();
-        navigate(`/orders/${order._id}`, { state: { order } }); // Redirect to order confirmation
+        const orderId = order?._id;
+        if (orderId) {
+          navigate(`/orders/${orderId}`, { state: { order } });
+          return;
+        }
+
+        let fallback = '/products';
+        try {
+          fallback = localStorage.getItem('ng_last_product_path') || fallback;
+        } catch {
+          // ignore
+        }
+        navigate(fallback);
       }, 1500);
 
     } catch (error) {
@@ -124,17 +143,30 @@ export default function CartPage() {
   }
 
   if (orderSuccess) {
+    let lastOrderId = '';
+    let fallbackProduct = '/products';
+    try {
+      lastOrderId = sessionStorage.getItem('ng_last_order_id') || '';
+      fallbackProduct = localStorage.getItem('ng_last_product_path') || fallbackProduct;
+    } catch {
+      // ignore
+    }
+
     return (
       <div className="container mx-auto px-4 py-12 text-center">
         <div className="max-w-md mx-auto">
           <div className="text-green-500 text-6xl mb-4">✓</div>
           <h1 className="text-2xl font-bold mb-4">Order Placed Successfully!</h1>
           <p className="text-gray-600 mb-6">
-            Thank you for your order. We've sent a confirmation email to {formData.email}.
+            Thank you for your order. We've sent a confirmation email to {successEmail}.
           </p>
           <div className="flex gap-4 justify-center">
-            <Link to="/products" className="btn btn-outline">Continue Shopping</Link>
-            <Link to="/orders" className="btn btn-primary">View Orders</Link>
+            <Link to={fallbackProduct} className="btn btn-outline">Back to Product</Link>
+            {lastOrderId ? (
+              <Link to={`/orders/${lastOrderId}`} className="btn btn-primary">View Order</Link>
+            ) : (
+              <Link to="/products" className="btn btn-primary">Shop</Link>
+            )}
           </div>
         </div>
       </div>
@@ -310,17 +342,6 @@ export default function CartPage() {
           </div>
         </div>
       </div>
-
-      {/* Frequently Bought Together Section - Only show if cart has items */}
-      {cartItems?.length > 0 && (
-        <div className="mt-16">
-          <RecommendationSlider 
-            title="Frequently Bought Together" 
-            type="frequentlyBoughtTogether"
-            productIds={cartItems.map(item => item.productId)}
-          />
-        </div>
-      )}
     </div>
   );
 }

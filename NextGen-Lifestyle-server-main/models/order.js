@@ -33,6 +33,7 @@ const addressSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
+    userId: { type: String, index: true },
     customerName: { type: String },
     email: { type: String },
     channel: {

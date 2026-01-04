@@ -11,12 +11,6 @@ export default function Footer() {
             </Link>
             <p className="text-sm text-gray-600 mt-1">© {new Date().getFullYear()} All rights reserved</p>
           </div>
-          <div className="flex space-x-4">
-            <Link to="/about" className="hover:text-primary">About</Link>
-            <Link to="/contact" className="hover:text-primary">Contact</Link>
-            <Link to="/privacy" className="hover:text-primary">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-primary">Terms</Link>
-          </div>
         </div>
       </div>
     </footer>

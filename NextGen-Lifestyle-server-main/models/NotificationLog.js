@@ -28,6 +28,20 @@ const NotificationLogSchema = new mongoose.Schema(
     attempts: { type: Number, default: 0 },
     lastError: { type: String, default: "" },
     nextRetryAt: { type: Date, default: null },
+
+    // Feature 10: log every attempt
+    attemptLogs: {
+      type: [
+        {
+          attempt: { type: Number, required: true },
+          at: { type: Date, required: true },
+          status: { type: String, enum: ["sent", "failed"], required: true },
+          error: { type: String, default: "" },
+          providerRequestId: { type: String, default: "" },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
